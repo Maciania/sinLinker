@@ -3,14 +3,19 @@ import xml.etree.ElementTree as etree
 
 
 class ObjectMnemos:
+    """ Класс для работы с мнесохемами в папке /objects """
     def __init__(self, objectDir_path):
         self.dir_path = objectDir_path
 
-
     def get_files_info(self):
+        """ Вернуть основную информацию о мнемосхеме
+            id - № мнемосхемы по порядку
+            file - абсолютный путь
+            name - имя мнемо в проекте HMI
+            uuid - идентификатор мнемо
+            кол-во пиктограмм на мнеомхеме"""
+
         directory = Path(self.dir_path)
-        # files = [f.name for f in directory.iterdir() if f.is_file() and f.name.startswith("Screen_")]
-        # print(files)
 
         result = []
 
@@ -33,6 +38,14 @@ class ObjectMnemos:
         return name, uuid
 
     def get_data_from_omobj(self, file):
+        """ Вернуть информацию по пиктограммам на нмемосхеме
+        counter - № по порядку
+        name - название пиктограммы в проекте HMI
+        base_type - родительский тип (AI, AI_LSU и т.д.)
+        value - значение в поле initPath
+         ap_value - значение в поле Ap_Source
+         """
+
         tree = etree.parse(file)
         root = tree.getroot()
 
@@ -44,9 +57,6 @@ class ObjectMnemos:
             name = obj.attrib.get("name")
             base_type = obj.attrib.get("base-type")
 
-            # Находим init с target="_Path"
-            # path_init = obj.find('init[@target="_Path"]')
-
             path_init = None
             path_ap = None
             for init in obj.findall("init"):  # перебираем все теги <init> внутри <object>
@@ -55,17 +65,7 @@ class ObjectMnemos:
                 if init.attrib.get("target") == "_ApSource":  # проверяем атрибут
                     path_ap = init
 
-                    # break  # нашли — можно выйти из цикла
-
-            # path_ap = None
-            # for ap in obj.findall("init"):  # перебираем все теги <init> внутри <object>
-            #     if obj.attrib.get("target") == "_ApSource":  # проверяем атрибут
-            #         path_ap = ap
-            #         break  # нашли — можно выйти из цикла
-
-
             if path_init is not None and name:
-                # print(path_init)
                 value = path_init.attrib.get("value", "")
 
                 try:
@@ -80,11 +80,9 @@ class ObjectMnemos:
 
 
     def get_count_object(self, file):
+        """ Кол-во объектов с initPAth - т.е. пиктограммы """
         tree = etree.parse(file)
         root = tree.getroot()
-
-        # name = root.attrib.get("name")
-        # uuid = root.attrib.get("uuid")
 
         count = 0
 

@@ -5,7 +5,7 @@ from tkinter import ttk
 from datetime import datetime
 from objectMnemos import ObjectMnemos
 
-from gui import MyFileDialog, MyComboBox, MyScrollText, MyLabelFrame, ControlField, UniversalTable
+from gui import MyFileDialog, ControlField, UniversalTable
 
 
 class FrameInitPath(ttk.Frame):
@@ -13,11 +13,6 @@ class FrameInitPath(ttk.Frame):
         super().__init__(master)
 
         self.ObjectMnemosInst = None
-        # self.objectFilesList = None
-        # self.myOmx = None
-        # self.myLibOmx = None
-        # self.ConfExcell = None
-        # self.instAppDict = []
         self.inst_list = []
         self.omobj_list = [] # Список словарей в формате [id, filename, name, uuid, cnt_blockicons]
 
@@ -65,11 +60,6 @@ class FrameInitPath(ttk.Frame):
             'object_dir': MyFileDialog(self, 'Путь к object c мнемосхемами :', 'Открыть', cmd=self.select_object_dir,
                                        help_title=self.help_info['omx']['title'],
                                        help_label=self.help_info['omx']['label']),
-            # 'map': MyFileDialog(self, 'Файл карты :', 'Открыть', cmd=self.test, help_title= self.help_info['map']['title'], help_label=self.help_info['map']['label']),
-            # 'libOmx': MyFileDialog(self, 'Файл библиотеки Lib :', 'Открыть', cmd=self.test, help_title= self.help_info['libOmx']['title'], help_label=self.help_info['libOmx']['label']),
-            # 'conf_excell': MyFileDialog(self, 'Конфигуратор Excell:', 'Открыть', cmd=self.test, help_title= self.help_info['conf_excell']['title'], help_label=self.help_info['conf_excell']['label']),
-            # 'iosObj': MyComboBox(self, 'Список объектов в IosApp :', bindCombo=self.selected_iosApp),
-            # 'iosType': MyComboBox(self, 'Тип :', bindCombo=None),
             'object_table': UniversalTable(self,
                                         columns=("#1", "#2", "#3", "#4", "#5"),
                                         headings=("№", "Файл", "Название", "uuid", "кол-во блокиконок"),
@@ -90,13 +80,10 @@ class FrameInitPath(ttk.Frame):
                                         #             },
                                         #            bindRowClick=self.test
                                                     ),
-            # 'log': MyScrollText(self),
-            # 'nodePath': MyLabelFrame(self, 'NodePath :', bindEntry=self.connect_node_path),
-            # 'nodeId': MyLabelFrame(self, 'NodeId :', bindEntry=self.connect_node_id),
             'btn': ControlField(self,
-                                ('Получить объекты', self.test),
+                                ('Получить объекты', self.get_blockicons),
                                 # ('Проверить подвязку', self.check_connection),
-                                ('Полная привязка', self.test))
+                                ('Полная привязка', self.get_blockicons))
         }
 
     def pack_widgets(self):
@@ -119,14 +106,15 @@ class FrameInitPath(ttk.Frame):
             self.omobj_list = self.ObjectMnemosInst.get_files_info()
             self.insert_to_omobj_table()
 
-    def test(self, event):
+    def get_blockicons(self, event):
+        """ Получить информацию по мнемосхеме и встваить в таблицу с блокиконками """
         file = self.fields['object_table'].get_selected(cols=(0, 1))[0][1]
         self.inst_list = self.ObjectMnemosInst.get_data_from_omobj(file)
         self.fields['inst_table'].clear()
         self.insert_to_inst_table()
 
     def object_table_insert_rule(self, values):
-        # print(values)
+        """ Подсвечиваем строки где есть бллокиконки """
         id, filename, name, uuid, cnt_blockicons = values
         tags = ('highlight_row',) if cnt_blockicons > 0 else ()
         return values, tags
