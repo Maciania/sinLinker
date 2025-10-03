@@ -1,8 +1,12 @@
 /venv/
 /.idea/
 /exe_version/
+/data_files/
+/dist/
+/build/
 *.ico
 *.spec
 *.xml
 *.png
 *.omx
+*.log

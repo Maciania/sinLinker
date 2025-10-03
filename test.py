@@ -1,1 +1,0 @@
-print("InOut" in ("In", "nam") and True)
