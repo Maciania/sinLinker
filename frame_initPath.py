@@ -68,7 +68,7 @@ class FrameInitPath(ttk.Frame):
                                         highlight_rules={
                                             'highlight_row': ('lightgreen', 'black')
                                         },
-                                       bindRowClick=self.test
+                                       bindRowClick=self.get_blockicons
                                         ),
             'inst_table': UniversalTable(self,
                                         columns=("#1", "#2", "#3", "#4", "#5"),
@@ -79,15 +79,15 @@ class FrameInitPath(ttk.Frame):
                                         #         'highlight_row': ('lightgreen', 'black')
                                         #             },
                                         #            bindRowClick=self.test
-                                                    ),
-            'btn': ControlField(self,
-                                ('Получить объекты', self.get_blockicons),
-                                # ('Проверить подвязку', self.check_connection),
-                                ('Полная привязка', self.get_blockicons))
+                                                    )
+            # 'btn': ControlField(self,
+            #                     ('Получить объекты', self.get_blockicons),
+            #                     # ('Проверить подвязку', self.check_connection),
+            #                     ('Полная привязка', self.get_blockicons))
         }
 
     def pack_widgets(self):
-        order = ['object_dir', 'object_table', 'inst_table', 'btn']
+        order = ['object_dir', 'object_table', 'inst_table']
         for w in order:
             widget = self.fields[w]
             if w == 'object_table':
