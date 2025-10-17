@@ -84,7 +84,8 @@ class FramePLC(ttk.Frame):
                                     insert_rule=self.mytable_insert_rule,
                                     highlight_rules={
                                             'highlight_yellow': ('yellow', 'black'),
-                                            'highlight_red': ('red', 'white')
+                                            'highlight_red': ('red', 'white'),
+                                            'highlight_black': ('black', 'yellow')
                                         },
                                     bindRowClick=self.bindRowCLick
                                     ),
@@ -297,7 +298,14 @@ class FramePLC(ttk.Frame):
             else:
                 conn_list.append(True)
 
-        set_list = set(conn_list)
+        if len(conn_list) > 0:
+            set_list = set(conn_list)
+        else:
+            return "Нет секции в Lib"
+
+        # print(f'Список статусов подвязки тегов в экземплярах: {conn_list}')
+        # print(f'Множество статусов подвязки тегов в экземплярах: {set_list}')
+
         conn_list.clear()
         if len(set_list) == 2:
             return 'Частично'
@@ -316,6 +324,8 @@ class FramePLC(ttk.Frame):
             tags = ('highlight_yellow',)
         elif con_status == 'Отсутствует':
             tags = ('highlight_red',)
+        elif con_status == 'Нет секции в Lib':
+            tags = ('highlight_black',)
         return values, tags
 
     def conntable_insert_rule(self, values):

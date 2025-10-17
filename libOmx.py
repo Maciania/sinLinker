@@ -95,7 +95,7 @@ class LibOmxFile:
         tag_list = []
         pathList = path.split('.')
 
-        print(pathList)
+        # print(pathList)
         #
         # print(pathList[2], pathList[-4])
         # print(pathList[3], pathList[-3])
@@ -140,16 +140,27 @@ class LibOmxFile:
 
         try:
             for i5 in found_aspect.xpath("ct:socket", namespaces=self.ns):
+                # Ищем в сокете атрибут "Имя узла в OPC"
+                node_attr = i5.xpath(".//*[local-name()='attribute' and @type='unit.Server.Attributes.NodeRelativePath']")
+
+                # Если он найден
+                if node_attr:
+                    node_relative_path_value = node_attr[0].get("value")
+
                 for i6 in i5.xpath("ct:socket-parameter", namespaces=self.ns):
-                    if i5.get("name") in ("Out", "Input", "Output", "InOut") and pathList[-2] in ('OPC_UA', "S7") :  # Т.к. есть атрибут Имя узла в OPC = "" для сокетов 'Out' его не конкатенируем
-                        tag_list.append([i6.get("name"), i6.get("type")])
-                    elif i5.get("name") in ("AIVar_Ret", "Vlv_Ret", "In") and pathList[-2] == 'ModbusTCP': # Частные случаи добавления атрибута (Имя узла в OPC = "") например для библиотеки ModBusTCP
-                        tag_list.append([i6.get("name"), i6.get("type")])
+                    # Если в сокете есть атрибут имя узла в OPC
+                    if node_attr:
+                        # Если ему присвоено значение то добавим его в путь тега иначе пусто
+                        if node_relative_path_value:
+                            tag_list.append([f"{node_relative_path_value}.{i6.get("name")}", i6.get("type")])
+                        else:
+                            tag_list.append([i6.get("name"), i6.get("type")])
+                    # Если в сокете нет такого атрибута, то добавляем в путь название атрибута
                     else:
                         tag_list.append([f"{i5.get("name")}.{i6.get("name")}", i6.get("type")])
-                    # print(f"**inSocket**{i5.get("name")}.{i6.get("name")}")
+
         except UnboundLocalError:
-            print("Сокеты не обнаружены переходим к поиску параметров")
+            print(f"Сокеты не обнаружены переходим к поиску параметров для типа: {found_types}, объекта: {found_obj}, протокола: {found_protocol}.\n Нет секции для этого типа в Lib.omx")
 
 
         try:
@@ -157,34 +168,6 @@ class LibOmxFile:
                 tag_list.append([f"{i7.get("name")}", i7.get("type")])
                 # print(f"***parameter***{i7.get("name")}***")
         except UnboundLocalError:
-            print(f"Найденная секция не подходит под шаблон для {path}, found_aspect = {etree.tostring(found_aspect, pretty_print=True, encoding='unicode')}")
+            print(f"Найденная секция не подходит под шаблон для типа: {found_types}, объекта: {found_obj}, протокола: {found_protocol}.\n Нет секции для этого типа в Lib.omx")
 
         return tag_list
-
-                # found = None
-                # for child in current_element.findall("ct:object", namespaces=self.ns):
-                #     if child.get("name") == part:
-                #         found = child
-                #         break
-                # if found is None:
-                #     raise ValueError(f"Путь '{path}' не найден (не удалось найти '{part}')")
-                # current_element = found
-
-
-
-                # for j in i.xpath("sys:namespace", namespaces=self.ns):
-                #     print(f"{j.get("name")},")
-                #
-                #     for k in j.xpath("ct:type", namespaces=self.ns):
-                #         print(f"***{k.get("name")}***")
-
-                        # for kk in k.xpath("ct:socket", namespaces=self.ns):
-                        #     print(f"***socket***{kk.get("name")}***")
-                        #
-                        #     for kkk in kk.xpath("ct:socket-parameter", namespaces=self.ns):
-                        #         print(f"**inSocket**{kkk.get("name")}.{kk.get("name")}***")
-                        #
-                        # for pp in k.xpath("ct:parameter", namespaces=self.ns):
-                        #     print(f"***parameter***{pp.get("name")}***")
-
-        # print(top_level_ns)
