@@ -5,7 +5,7 @@ from logger import Logger
 if __name__ == "__main__":
     print(">>> Запуск программы")
     try:
-        Logger()
+        # Logger()
         print(">>> Logger инициализирован")
 
         root = tk.Tk()

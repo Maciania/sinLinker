@@ -1,5 +1,6 @@
+import re
+from xml.dom import minidom
 import xml.etree.ElementTree as ET
-from datetime import datetime
 
 from lxml import etree
 
@@ -15,20 +16,6 @@ class OmxFile:
             raise ValueError("Элемент <ct:object name='Application'> не найден.")
         self.application = self.application_nodes[0]
 
-    # def collect_object_paths(self, element, path_prefix=""):
-    #     paths = []
-    #     name = element.get("name")
-    #     if name:
-    #         current_path = f"{path_prefix}.{name}" if path_prefix else name
-    #         children = element.findall("ct:object", namespaces=self.ns)
-    #         if children:
-    #             for child in children:
-    #                 paths.extend(self.collect_object_paths(child, current_path))
-    #         else:
-    #             paths.append(current_path)
-    #
-    #
-    #     return paths
 
     def collect_object_paths(self, element, path_prefix=""):
         paths = []
@@ -51,34 +38,11 @@ class OmxFile:
         return paths
 
 
-
     def get_instance_list(self):
         object_paths = self.collect_object_paths(self.application)
         # for path in object_paths:
         #     print(path, self.get_base_type_by_path(path))
         return object_paths
-
-
-    # def get_base_type_by_path(self, path: str):
-    #     parts = path.split(".")
-    #     current_element = self.application
-    #
-    #     for part in parts[1:]:  # пропускаем "Application"
-    #         found = None
-    #         for child in current_element.findall("ct:object", namespaces=self.ns):
-    #             if child.get("name") == part:
-    #                 found = child
-    #                 break
-    #         if found is None:
-    #             raise ValueError(f"Путь '{path}' не найден (не удалось найти '{part}')")
-    #         current_element = found
-    #
-    #     base_type = current_element.get("base-type")
-    #
-    #     # if base_type == 'NoneType':
-    #     #     print(f'NoneType определна для {path}')
-    #
-    #     return base_type
 
     def get_base_type_by_path(self, path: str):
         parts = path.split(".")
@@ -100,138 +64,67 @@ class OmxFile:
 
         return current_element.get("base-type")
 
-'''
-    # Получение списка имен объектов в AstraRegul => IOS_App => SinLib
-    def get_SinLib_struct(self):
-        # рабочая ветка
-        sinLibLst = []
-        AstraRegul = self.omx.find('{automation.deployment}domain')
-        IosApp = AstraRegul.find('{automation.deployment}application-object')
-        for logicObj in IosApp:
-            if logicObj.get('name') == 'SinLib':
-                for obj in logicObj:
-                    sinLibLst.append(obj.get('name'))
+    def find_element_by_path(self, path: str):
+        """Возвращает XML-элемент по dot-пути, например Application.dbPS"""
+        parts = path.split(".")
+        current = self.application
+        for part in parts[1:]:
+            found = None
+            for child in current:
+                if child.tag.split("}")[-1] == "object" and child.get("name") == part:
+                    found = child
+                    break
+            if found is None:
+                raise ValueError(f"Элемент '{part}' не найден по пути '{path}'")
+            current = found
+        return current
 
-        return sinLibLst
 
-    # Получить тип объекта в директории SinLib
-    def get_Obj_base_type(self, obj_name):
-        AstraRegul = self.omx.find('{automation.deployment}domain')
-        IosApp = AstraRegul.find('{automation.deployment}application-object')
-        for logicObj in IosApp:
-            if logicObj.get('name') == 'SinLib':
-                for obj in logicObj:
-                    if obj.get('name') == obj_name:
-                        return obj.get('base-type').split('.')[-2]
+    def insert_object_at_end(self, parent_path: str, name: str, base_type: str, aspect: str, uuid: str):
+        """
+        Вставляет новый <object> в конец указанной ветки, сохраняя форматирование.
+        """
+        parent = self.find_element_by_path(parent_path)
+        parent_name = parent.get("name")
 
-        return None
+        new_object_line = (
+            f'<object name="{name}" '
+            f'base-type="{base_type}" '
+            f'aspect="{aspect}" '
+            f'uuid="{uuid}"/>'
+        )
 
-    # Получить путь объекта по имени в директории SinLib
-    def get_Obj_node_path(self, obj_name):
-        AstraRegul = self.omx.find('{automation.deployment}domain')
-        IosApp = AstraRegul.find('{automation.deployment}application-object')
-        for logicObj in IosApp:
-            if logicObj.get('name') == 'SinLib':
-                for obj in logicObj:
-                    if obj.get('name') == obj_name:
-                        return '.'.join(obj.get('original').split('.')[
-                                        3:])  # Возвращаем путь после 'REGUL_R500_51_1_A', 'Runtime', 'SDM_app'
+        # 1️⃣ Получаем исходный XML как строку
+        with open(self.file_path, 'r', encoding='utf-8') as f:
+            original_xml = f.read()
 
-        return None
+        # Пытаемся найти фрагмент <object name="dbPS" ...> ... </object>
+        pattern = re.compile(
+            rf'(<[^>]*name="{parent_name}"[^>]*>)(.*?)(</[^>]*object\s*>)',
+            re.DOTALL
+        )
 
-    # Получить путь объекта по имени в директории SinLib
-    def get_Obj_node_id(self, obj_name):
-        AstraRegul = self.omx.find('{automation.deployment}domain')
-        IosApp = AstraRegul.find('{automation.deployment}application-object')
-        for logicObj in IosApp:
-            if logicObj.get('name') == 'SinLib':
-                for obj in logicObj:
-                    if obj.get('name') == obj_name:
-                        return obj.get('original').split('.')[-1]
+        match = pattern.search(original_xml)
+        if not match:
+            raise ValueError(f"Не найден XML-блок для '{parent_name}'")
 
-        return None
+        # Разделяем содержимое на начало, тело и конец
+        start_tag, inner_xml, end_tag = match.groups()
 
-    # Получить тип библиотеки из которой экземпляром которой является объект
-    def get_Obj_library_type(self, obj_name):
-        AstraRegul = self.omx.find('{automation.deployment}domain')
-        IosApp = AstraRegul.find('{automation.deployment}application-object')
-        for logicObj in IosApp:
-            if logicObj.get('name') == 'SinLib':
-                for obj in logicObj:
-                    if obj.get('name') == obj_name:
-                        return obj.get('base-type').split('.')[1]
+        # 2️⃣ Определим уровень отступа
+        indent_match = re.search(r'(\n[ \t]+)<object', inner_xml)
+        indent = indent_match.group(1) if indent_match else "\n    "
 
-        return None
+        # 3️⃣ Вставляем новую секцию перед закрывающим тегом
+        new_inner_xml = inner_xml.rstrip() + f"{indent}{new_object_line}\n"
 
-    # Получить список объектов (папок с объектами) в IosApp
-    def get_objects_iosApp(self):
-        return [logicObj.get('name') for logicObj in self.IosApp]
+        new_xml = original_xml.replace(match.group(0), f"{start_tag}{new_inner_xml}{end_tag}")
 
-    # Список типов (AI, DI, VLVA и т.д.) внутри объекта (SDM, NS1, NOR и т.д.)
-    def get_types_in_iosApp(self, iosAppObj):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                return [obj.get('name') for obj in logicObj]
+        # 4️⃣ Просто сохраняем без дополнительного форматирования
+        new_path = self.file_path.replace(".omx", "_new.omx")
+        with open(new_path, "w", encoding="utf-8") as f:
+            f.write(new_xml)
 
-        return None
-
-    # Список названий объектов по пути iosAppObj (SDM, UKL, UPOV) -> iosAppObjType (DI, AI)
-    def get_objName(self, iosAppObj, iosAppObjType):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                for typesObj in logicObj:
-                    if typesObj.get('name') == iosAppObjType:
-                        return [obj.get('name') for obj in typesObj]
-
-        return None
-
-    # Вернуть базовый библиотечный тип этого объекта
-    # iosAppObj - папка принадлежащая объекту
-    # iosAppObjType - папка с типом объектов
-    def get_base_type(self, iosAppObj, iosAppObjType, obj_name):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                for typesObj in logicObj:
-                    if typesObj.get('name') == iosAppObjType:
-                        for obj in typesObj:
-                            if obj.get('name') == obj_name:
-                                return obj.get('base-type').split('.')[-2]
-
-        return None
-
-    # Вернуть название библиотеки экземпляром которой является этот объект
-    def get_lib_name(self, iosAppObj, iosAppObjType, obj_name):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                for typesObj in logicObj:
-                    if typesObj.get('name') == iosAppObjType:
-                        for obj in typesObj:
-                            if obj.get('name') == obj_name:
-                                return obj.get('base-type').split('.')[-4]
-
-    # Получить путь объекта по имени в директории
-    def get_node_path(self, iosAppObj, iosAppObjType, obj_name):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                for typesObj in logicObj:
-                    if typesObj.get('name') == iosAppObjType:
-                        for obj in typesObj:
-                            if obj.get('name') == obj_name:
-                                return '.'.join(obj.get('original').split('.')[
-                                                3:])  # Возвращаем путь после 'REGUL_R500_51_1_A', 'Runtime', 'SDM_app'
-
-        return None
-
-    # Получить путь объекта по имени в директории
-    def get_node_id(self, iosAppObj, iosAppObjType, obj_name):
-        for logicObj in self.IosApp:
-            if logicObj.get('name') == iosAppObj:
-                for typesObj in logicObj:
-                    if typesObj.get('name') == iosAppObjType:
-                        for obj in typesObj:
-                            if obj.get('name') == obj_name:
-                                return obj.get('original').split('.')[-1]
-
-        return None
-'''
+        print(f"✅ Новый объект добавлен в '{parent_path}' (в конец) → {new_path}")
+        return new_path
 

@@ -58,6 +58,7 @@ class ConfExcellFile:
         self.file_path = file_path
         self.excel_file = pd.ExcelFile(file_path)
         self.items_list = {'dbPS':{},
+                           'dbEPS': {},
                            'dbPID': {},
                            'dbPID_PWM': {},
                            'dbLock': {},
@@ -76,6 +77,25 @@ class ConfExcellFile:
                            'dbDI': {}
                            } # словарь списков по всем листам в эксель
 
+        self.items_lib = {'dbPS': 'unit.Lib.Types.PS.OPC_UA.PS_IOS',
+                           'dbEPS': 'unit.Lib.Types.EPS.OPC_UA.Area_PLC',
+                           'dbPID': 'unit.Lib.Types.PID.OPC_UA.PID_PLC',
+                           'dbPID_PWM': None,
+                           'dbLock': 'unit.Lib.Types.Lock.OPC_UA.Lock_PLC',
+                           'dbCrush': None,
+                           'dbConv': None,
+                           'dbARS': 'unit.Lib.Types.ARS.OPC_UA.ARS_PLC',
+                           'dbValve': None,
+                           'dbValveReg': None,
+                           'dbMotor': None,
+                           'dbMotorDP': None,
+                           'dbAO': None,
+                           'dbDO': None,
+                           'dbAM': None,
+                           'dbDM': None,
+                           'dbAI': None,
+                           'dbDI': None
+                           }
 
 
     def getDataFromRow(self, sheet_name, name_col1=0, name_col2=1, start_row=4, skip_empty=True):
