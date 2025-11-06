@@ -77,24 +77,24 @@ class ConfExcellFile:
                            'dbDI': {}
                            } # словарь списков по всем листам в эксель
 
-        self.items_lib = {'dbPS': 'unit.Lib.Types.PS.OPC_UA.PS_IOS',
+        self.items_lib = {'dbPS': 'unit.Lib.Types.PS.OPC_UA.PS_PLC',
                            'dbEPS': 'unit.Lib.Types.EPS.OPC_UA.Area_PLC',
                            'dbPID': 'unit.Lib.Types.PID.OPC_UA.PID_PLC',
-                           'dbPID_PWM': None,
+                           'dbPID_PWM': 'unit.Lib.Types.PID.OPC_UA.PID_PWM',
                            'dbLock': 'unit.Lib.Types.Lock.OPC_UA.Lock_PLC',
-                           'dbCrush': None,
-                           'dbConv': None,
+                           'dbCrush': 'unit.Lib.Types.Crusher.OPC_UA.Crush_PLC',
+                           'dbConv': 'unit.Lib.Types.Conv.OPC_UA.Conv_PLC',
                            'dbARS': 'unit.Lib.Types.ARS.OPC_UA.ARS_PLC',
-                           'dbValve': None,
-                           'dbValveReg': None,
-                           'dbMotor': None,
-                           'dbMotorDP': None,
-                           'dbAO': None,
-                           'dbDO': None,
-                           'dbAM': None,
-                           'dbDM': None,
-                           'dbAI': None,
-                           'dbDI': None
+                           'dbValve': 'unit.Lib.Types.Valve.OPC_UA.Valve_PLC',
+                           'dbValveReg': 'unit.Lib.Types.ValveReg.OPC_UA.ValveReg_PLC',
+                           'dbMotor': 'unit.Lib.Types.Motor.OPC_UA.Motor_PLC',
+                           'dbMotorDP': 'unit.Lib.Types.MotorDP.OPC_UA.MotorDP_PLC',
+                           'dbAO': 'unit.Lib.Types.AO.OPC_UA.AO_PLC',
+                           'dbDO': 'unit.Lib.Types.DO.OPC_UA.DO_PLC',
+                           'dbAM': 'unit.Lib.Types.AM.OPC_UA.AM_PLC',
+                           'dbDM': 'unit.Lib.Types.DM.OPC_UA.DM_PLC',
+                           'dbAI': 'unit.Lib.Types.AI.OPC_UA.AI_PLC',
+                           'dbDI': 'unit.Lib.Types.DI.OPC_UA.DI_PLC'
                            }
 
 
@@ -113,13 +113,14 @@ class ConfExcellFile:
 
         # Срез с нужной строки
         df = df.iloc[start_row - 1:, [name_col1, name_col2]]
+        # print(f"срез всей таблицы: {df}")
 
         # Убираем пустые строки, если нужно
         if skip_empty:
             df = df.dropna(how='all')
 
-        # Преобразуем в словарь
-        result = dict(zip(df.iloc[:, 1], df.iloc[:, 0]))
+        # Преобразуем в словарь ключ: item_ID, значение: Enum_name
+        result = dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
 
         # self.close()
         return result
@@ -130,7 +131,7 @@ class ConfExcellFile:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Найденные листы в конфигураторе: {sheet_names}")
         for i in self.items_list.keys():
             if i in sheet_names:
-                self.items_list[i] = self.getDataFromRow(i)
+                self.items_list[i] = self.getDataFromRow(i, skip_empty=False)
                 print(
                     f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Лист: {i} найден")
         # print (self.items_list['dbMotor'])

@@ -85,8 +85,8 @@ class FrameItemGenerator(ttk.Frame):
             # 'table': MyTable(self, bindRowCLick=self.bindRowCLick),
             'table': UniversalTable(self,
                                     columns=("#1", "#2", "#3", "#4", "#5"),
-                                    headings=("ID", "Тип", "Кол-во", "Библиотека", "Статус подвязки"),
-                                    widths=(30, 120, 80, 100, 120),
+                                    headings=("ID", "Тип", "Найдено в конф", "Библиотека", "DS/Конфигуратор"),
+                                    widths=(10, 10, 60, 100, 10),
                                     insert_rule=self.mytable_insert_rule,
                                     highlight_rules={
                                             'highlight_yellow': ('yellow', 'black'),
@@ -97,7 +97,7 @@ class FrameItemGenerator(ttk.Frame):
                                     ),
             'item_table': UniversalTable(self,
                                     columns=("#1", "#2", "#3", "#4"),
-                                    headings=("№ п/п", "Enum_Name", "№ item", "Привязка"),
+                                    headings=("№ п/п", "Enum_Name", "№ item", "Наличие в DS"),
                                     widths=(30, 120, 120, 120),
                                     insert_rule=self.conntable_insert_rule,
                                     highlight_rules={
@@ -105,7 +105,7 @@ class FrameItemGenerator(ttk.Frame):
                                     }
                                     ),
             'btn': ControlField(self,
-                                ('Получить item', self.insert_to_table),
+                                ('Прочитать', self.insert_to_table),
                                 # ('Подвязать выбранное', self.link_one_instance),
                                 ('Добавить item', self.insert_item))
         }
@@ -122,7 +122,7 @@ class FrameItemGenerator(ttk.Frame):
                 self.fields['conType'].setValues(['Через конфигуратор ПЛУ', 'Нумерация Item по текущему экземпляру'])
 
     # ------------------------------
-    # Методы для вкладки 1
+    # Методы для вкладки 4
     # ------------------------------
     def select_module_dir(self):
         """ Выбор директории c модулем (сокращаем действия на 2 действия)"""
@@ -234,8 +234,16 @@ class FrameItemGenerator(ttk.Frame):
         """ Вставка данных по конфигуратору по существующим item из конфигуратора в таблицу """
         self.fields['table'].clear()
         i = 1
+
         for key, value in self.ConfExcell.items_list.items():
-            self.fields['table'].insert(i, key, len(value), self.ConfExcell.items_lib.get(key), None)
+            # Получаем все номера item внутри искомой родительской секции (dbPS, dbDI и т.д.)
+            res = [
+                int(re.search(r'\[(\d+)\]', s).group(1))
+                for s in self.instApp
+                if s.startswith(f"Application.{key}.")
+            ]
+
+            self.fields['table'].insert(i, key, len(value), self.ConfExcell.items_lib.get(key), f'{len(res)}/{len(value)}')
             i += 1
 
 
@@ -259,204 +267,33 @@ class FrameItemGenerator(ttk.Frame):
 
         i = 1
         for key, value in self.ConfExcell.items_list.get(item_type, {}).items():
-            self.fields['item_table'].insert(i, key, value, "Существует" if value in res else None)
+            self.fields['item_table'].insert(i, value, key, "Да" if key in res else "Нет")
             i += 1
 
     def insert_item(self):
         """ Вставка выделенного item в Application модуля"""
         try:
-            item_type = self.fields['table'].get_selected()[0][0]
-            item_lib = self.fields['table'].get_selected()[0][1]
-            item_id = self.fields['item_table'].get_selected()[0][0]
-            item_id_num = self.fields['item_table'].get_selected()[0][1]
-            print(item_type, item_id)
+            item_type, item_lib = self.fields['table'].get_selected()[0]
 
-            self.myOmx.insert_object_at_end(
-            parent_path=f"Application.{item_type}",
-            name=f"{item_id_num}",
-            base_type=f"{item_lib}",
-            aspect="unit.Lib.Aspects.PLC",
-            uuid="aed15cf9-d7a3-426d-8d5b-ade6523fbeb6"
-            )
+            for item in self.fields['item_table'].get_selected(cols=(1,2,3)):
+                item_id, item_id_num, conn_stat = item
+
+                if item_type and item_lib and item_id_num and item_id and conn_stat == "Нет":
+
+                    self.myOmx.insert_object_at_end(
+                    parent_path=f"Application.{item_type}",
+                    name=f"Item[{item_id_num}]",
+                    base_type=f"{item_lib}",
+                    aspect="unit.Lib.Aspects.PLC",
+                    uuid="",
+                    comment = f"{item_id}"
+                    )
 
         except IndexError:
             print(f"Не выделена строка во второй таблице")
 
         # self.myOmx.save("C:\\Users\\sinetic\\Desktop\\sinLinker\\data_files\\GMO_30_PLC_R3_modified.omx")
 
-
-    def get_obj(self):
-        """
-        Получить данные по экземплярам в application модуля с программой ПЛК
-        """
-        self.instAppDict.clear()
-        self.instApp = self.myOmx.get_instance_list()
-        self.fields['table'].clear()
-        j = 0
-
-        print(*self.instApp)
-
-        for i in self.instApp:
-            j += 1
-            lib = self.myOmx.get_base_type_by_path(i)
-            # print(
-            #     f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Библиотека:{lib} для пути:{i}")
-            item_id = self.get_item_id(i)
-            # print(
-            #     f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Путь:{i} Чарт:{self.myLibOmx.get_lib_prefix(lib)} item_id:{item_id}")
-
-            conn_status = self.check_connection(i, lib)
-
-            # if item_id is not None:
-            self.instAppDict.append({'id': j, 'path': i, 'item_id': item_id, 'lib': lib, 'con_stat':conn_status})
-
-        self.insert_to_map_table()
-        # self.print_instAppDict()
-
-    def insert_to_map_table(self):
-        """ Вставка списка словарей self.instAppDict в таблицу 'table'"""
-
-        for i in self.instAppDict:
-            self.fields['table'].insert(i['id'], i['path'], i['item_id'], i['lib'], i['con_stat'])
-        # self.fields['table'].highlightRow()
-
-
-    def bindRowCLick(self, event):
-        row_val = self.fields['table'].get_selected()[0]
-        tag_list = self.myLibOmx.get_lib_tag_list(row_val[1])
-        full_path_tag_list = [i[0] for i in tag_list]
-        self.link_dict = self.check_link_one_instance(row_val[0], full_path_tag_list)
-        self.fields['conTable'].clear()
-
-        j = 0
-        for i in tag_list:
-            j += 1
-            self.fields['conTable'].insert(j, i[0], i[1],self.link_dict[i[0]])
-        # self.fields['conTable'].highlightRow()
-
-
-    def check_link_one_instance(self, path:str, tag_list:list):
-        """ Проверить подвязку по тегам одного экземпляра"""
-
-        link_dict = {}
-        for i in tag_list:
-            link_dict.update({i:self.myMap.check_link(str(path+'.'+i))})
-        return link_dict
-
-
-    def link_one_instance(self):
-        """ Создание и отправка секции с группой тегов по экземпляру в файл карты"""
-
-        for item in self.fields['table'].get_selected():
-
-            lib = self.myLibOmx.get_lib_prefix(item[1])
-            node_path = item[0]
-            item_id = self.get_item_id(node_path)
-
-            tag_list = self.myLibOmx.get_lib_tag_list(item[1])
-            full_path_tag_list = [i[0] for i in tag_list]
-            link_dict = self.check_link_one_instance(item[0], full_path_tag_list)
-
-            if 'None' in link_dict.values():
-
-                # print(f'Привязка выбранного {lib}, {node_path}, {item_id}, словарь подвязок {link_dict}')
-
-                if item_id is not None:
-                    for tag, node_id in link_dict.items():
-                        if node_id == "None":
-                            xmlObj = self.myMap.create_XMLtag(lib, node_path, tag, item_id)
-                            self.myMap.insert_XML_to_map(xmlObj)
-
-        self.save_map()
-
-
-    def get_item_id_from_tag(self, node_path):
-        """ Получить item Id из экземпляра по его названию в проекте"""
-        try:
-            result = re.search(r'\[(\d+)]', node_path)
-            if result:
-                return result.group(1)
-            else:
-                return None
-        except (AttributeError, TypeError) as e:
-            print(f"Ошибка при обработке текста: {e}")
-            return None
-
-
-    def get_item_id(self, node_path):
-        """ Получить значение itemId взависимости от выбранного режима подвязки в комбобоксе conType"""
-        item_id = None
-
-        con_type = self.fields['conType'].getId()
-
-        if con_type == 0: # Через конфигуратор ПЛК
-            item_id = self.get_item_id_from_config(node_path)
-
-        if con_type == 1:  # По номеру item в названии
-            item_id = self.get_item_id_from_tag(node_path)
-
-        return item_id
-
-
-    def get_item_id_from_config(self, node_path):
-        """  Получить item Id экземпляра по соответствию в конфигураторе ПЛК на листе файла excell"""
-        try:
-            lib = self.myOmx.get_base_type_by_path(node_path)
-            appStr = node_path.split('.')
-            noAppPath = f'{appStr[-2]}_{appStr[-1]}'
-            item_id = self.ConfExcell.getItemId(self.myLibOmx.get_lib_prefix(lib), noAppPath)
-            if item_id:
-                return item_id
-            else:
-                return None
-        except (AttributeError, TypeError) as e:
-            print(f"Ошибка при обработке текста: {e}")
-            return None
-
-
-    def write_to_map(self):
-        """ Проход по экземплярам, затем по тегам экземпляров, создание XML структур и добавление их в файл """
-
-        for i in self.instAppDict:
-            if i['item_id'] not in ["None", 'none', None]:
-                full_path_tag_list = [j[0] for j in self.myLibOmx.get_lib_tag_list(i['lib'])]
-                print('******************')
-                print(*full_path_tag_list)
-                for tag, node_id in self.check_link_one_instance(i['path'], full_path_tag_list).items():
-                    self.myMap.insert_XML_to_map(self.myMap.create_XMLtag(self.myLibOmx.get_lib_prefix(i['lib']), i['path'], tag, i['item_id']))
-        self.save_map()
-        # self.fields['table'].highlightRow()
-
-
-    def check_connection(self, path:str ,lib:str):
-        """ Проверка привязки по всем эксземплярам и всем тегам каждого экземпляра"""
-        # for i in self.instAppDict:
-        conn_list = []
-        full_path_tag_list = [j[0] for j in self.myLibOmx.get_lib_tag_list(lib)]
-        for tag, node_id in self.check_link_one_instance(path, full_path_tag_list).items():
-            if node_id == "None":
-                conn_list.append(False)
-            else:
-                conn_list.append(True)
-
-        if len(conn_list) > 0:
-            set_list = set(conn_list)
-        else:
-            return "Нет секции в Lib"
-
-        # print(f'Список статусов подвязки тегов в экземплярах: {conn_list}')
-        # print(f'Множество статусов подвязки тегов в экземплярах: {set_list}')
-
-        conn_list.clear()
-        if len(set_list) == 2:
-            return 'Частично'
-        if True in set_list:
-            return 'Полностью'
-        return 'Отсутствует'
-
-    # сохранить тег в файл
-    def save_map(self):
-        self.myMap.write_XML_to_map()
 
     def mytable_insert_rule(self, values):
         obj_id, obj_name, obj_type, base_type, con_status = values
@@ -470,6 +307,7 @@ class FrameItemGenerator(ttk.Frame):
         return values, tags
 
     def conntable_insert_rule(self, values):
-        i, obj_id, obj_type, conn_status = values
-        tags = ('highlight_row',) if conn_status == 'None' else ()
+        """ Выделяем цветом те экземпляры которых нет в DevStudio"""
+        col1, col2, col3, col4 = values
+        tags = ('highlight_row',) if col4 == 'Нет' else ()
         return values, tags

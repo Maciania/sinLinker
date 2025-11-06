@@ -24,9 +24,14 @@ class OmxFile:
             current_path = f"{path_prefix}.{name}" if path_prefix else name
 
             # ищем всех детей, у которых локальное имя тега == "object"
+            # children = [
+            #     child for child in element
+            #     if child.tag.split("}")[-1] == "object"
+            # ]
+
             children = [
                 child for child in element
-                if child.tag.split("}")[-1] == "object"
+                if child.tag.split("}")[-1].endswith("object")
             ]
 
             if children:
@@ -80,51 +85,94 @@ class OmxFile:
         return current
 
 
-    def insert_object_at_end(self, parent_path: str, name: str, base_type: str, aspect: str, uuid: str):
+    def insert_object_at_end(
+            self,
+            parent_path: str,
+            name: str,
+            base_type: str,
+            aspect: str,
+            uuid: str,
+            comment: str = "My Comment"
+    ):
         """
-        Вставляет новый <object> в конец указанной ветки, сохраняя форматирование.
+        Вставляет новый <object> в конец указанной родительской секции,
+        корректно обрабатывая вложенность и сохраняя оригинальные отступы
+        (включая перед закрывающим </object> родителя).
         """
         parent = self.find_element_by_path(parent_path)
         parent_name = parent.get("name")
 
-        new_object_line = (
-            f'<object name="{name}" '
-            f'base-type="{base_type}" '
-            f'aspect="{aspect}" '
-            f'uuid="{uuid}"/>'
-        )
+        with open(self.file_path, "r", encoding="utf-8") as f:
+            xml = f.read()
 
-        # 1️⃣ Получаем исходный XML как строку
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            original_xml = f.read()
-
-        # Пытаемся найти фрагмент <object name="dbPS" ...> ... </object>
-        pattern = re.compile(
-            rf'(<[^>]*name="{parent_name}"[^>]*>)(.*?)(</[^>]*object\s*>)',
-            re.DOTALL
-        )
-
-        match = pattern.search(original_xml)
-        if not match:
+        # 1️⃣ Ищем открывающий тег родителя
+        open_pat = re.compile(rf'<object\b[^>]*\bname="{re.escape(parent_name)}"[^>]*>', re.MULTILINE)
+        open_match = open_pat.search(xml)
+        if not open_match:
             raise ValueError(f"Не найден XML-блок для '{parent_name}'")
 
-        # Разделяем содержимое на начало, тело и конец
-        start_tag, inner_xml, end_tag = match.groups()
+        scan_pos = open_match.end()
 
-        # 2️⃣ Определим уровень отступа
-        indent_match = re.search(r'(\n[ \t]+)<object', inner_xml)
-        indent = indent_match.group(1) if indent_match else "\n    "
+        # 2️⃣ Ищем соответствующий закрывающий тег </object> родителя
+        tag_iter = re.finditer(r'<(/)?object\b([^>]*)/?>', xml[scan_pos:], re.DOTALL)
+        depth = 0
+        closing_abs_start = None
+        closing_abs_end = None
+        for m in tag_iter:
+            full = m.group(0)
+            is_closing = m.group(1) == '/'
+            self_closing = full.rstrip().endswith('/>')
+            tag_start = scan_pos + m.start()
+            tag_end = scan_pos + m.end()
 
-        # 3️⃣ Вставляем новую секцию перед закрывающим тегом
-        new_inner_xml = inner_xml.rstrip() + f"{indent}{new_object_line}\n"
+            if is_closing:
+                if depth == 0:
+                    closing_abs_start = tag_start
+                    closing_abs_end = tag_end
+                    break
+                else:
+                    depth -= 1
+            elif not self_closing:
+                depth += 1
 
-        new_xml = original_xml.replace(match.group(0), f"{start_tag}{new_inner_xml}{end_tag}")
+        if closing_abs_start is None:
+            raise ValueError(f"Не удалось найти закрывающий </object> для '{parent_name}'")
 
-        # 4️⃣ Просто сохраняем без дополнительного форматирования
-        new_path = self.file_path.replace(".omx", "_new.omx")
+        # 3️⃣ Вырезаем внутренности родителя
+        inner_xml = xml[open_match.end():closing_abs_start]
+
+        # 4️⃣ Определяем базовые отступы
+        ind_match = re.search(r'\n([ \t]+)<object\b', inner_xml)
+        base_indent = ind_match.group(1) if ind_match else "    "
+        inner_indent = base_indent + "    "
+
+        # Определяем отступ перед закрывающим тегом
+        prefix_before_closing = xml[:closing_abs_start]
+        last_newline = prefix_before_closing.rfind('\n')
+        closing_indent = ""
+        if last_newline != -1:
+            after_nl = prefix_before_closing[last_newline + 1: closing_abs_start]
+            closing_indent = re.match(r'([ \t]*)', after_nl).group(1) if after_nl else ""
+
+        # 5️⃣ Формируем новый блок <object>
+        new_object_block = (
+            f"\n{base_indent}<object name=\"{name}\" uuid=\"{uuid}\" "
+            f"base-type=\"{base_type}\" aspect=\"{aspect}\">\n"
+            f"{inner_indent}<attribute type=\"unit.System.Attributes.Comment\" "
+            f"value=\"{comment}\" xmlns=\"system\" />\n"
+            f"{inner_indent}<attribute type=\"unit.Lib.Attributes.IO.ID_Item\" "
+            f"value=\"{name}\" xmlns=\"system\" />\n"
+            f"{base_indent}</object>"
+        )
+
+        # 6️⃣ Вставляем перед закрывающим тегом родителя с сохранением исходного отступа
+        new_inner = inner_xml.rstrip() + new_object_block + f"\n{closing_indent}"
+        new_xml = xml[:open_match.end()] + new_inner + xml[closing_abs_start:]
+
+        # 7️⃣ Сохраняем
+        new_path = self.file_path.replace(".omx", ".omx")
         with open(new_path, "w", encoding="utf-8") as f:
             f.write(new_xml)
 
-        print(f"✅ Новый объект добавлен в '{parent_path}' (в конец) → {new_path}")
+        print(f"✅ Новый объект добавлен в '{parent_path}' → {new_path}")
         return new_path
-

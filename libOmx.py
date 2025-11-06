@@ -135,7 +135,6 @@ class LibOmxFile:
             if aspect == pathList[-1]:
                 found_aspect = i4
                 # print(f"found_aspect = {etree.tostring(found_aspect, pretty_print=True, encoding='unicode')}")
-                # print(f"found_aspect = {found_aspect}")
                 break
 
         try:
@@ -158,6 +157,99 @@ class LibOmxFile:
                     # Если в сокете нет такого атрибута, то добавляем в путь название атрибута
                     else:
                         tag_list.append([f"{i5.get("name")}.{i6.get("name")}", i6.get("type")])
+
+            # Ищем внутренние объекты ( например EPS в Area_PLC)
+            for i8 in found_aspect.xpath("ct:object", namespaces=self.ns):
+                inner_objName =  i8.get("name")
+                inner_baseType = i8.get("base-type")
+
+                # Если объект нашелся, ищем его теги и добавляем в лист атрибутов
+                if inner_objName:
+                    # print(f'inner: {inner_objName}, {inner_baseType}')
+                    for i9 in found_protocol.xpath("ct:type", namespaces=self.ns):
+                        inner_obj = i9.get("name")
+
+                        if inner_obj == inner_baseType.split('.')[-1]:
+                            found_inner_object = i9
+                            # print(f"found_inner_object = {etree.tostring(found_inner_object, pretty_print=True, encoding='unicode')}")
+                            break
+
+                    # Аналогично проходимся по внутреннему объекту
+                    try:
+                        for i15 in found_inner_object.xpath("ct:socket", namespaces=self.ns):
+                            # Ищем в сокете атрибут "Имя узла в OPC"
+                            inner_node_attr = i15.xpath(
+                                ".//*[local-name()='attribute' and @type='unit.Server.Attributes.NodeRelativePath']")
+
+                            # Если найден атрибут имя узла OPC, то получим его значение
+                            if inner_node_attr:
+                                inner_node_relative_path_value = inner_node_attr[0].get("value")
+
+                            # Проходим по параметрам и добавляем/не добавляем в путь имя сокета
+                            for i16 in i15.xpath("ct:socket-parameter", namespaces=self.ns):
+                                # Если в сокете есть атрибут имя узла в OPC
+                                if inner_node_attr:
+                                    # Если ему присвоено значение то добавим его в путь тега иначе пусто
+                                    if inner_node_relative_path_value:
+                                        tag_list.append(
+                                            [f"{inner_objName}.{inner_node_relative_path_value}.{i16.get("name")}", i16.get("type")])
+                                        # print(
+                                        #     [f"{inner_objName}.{inner_node_relative_path_value}.{i16.get("name")}", i16.get("type")])
+                                    else:
+                                        tag_list.append([f"{inner_objName}.{i16.get("name")}",
+                                                                                     i16.get("type")])
+                                        # print(
+                                        #     [f"{inner_objName}.{i16.get("name")}",
+                                        #      i16.get("type")])
+                                # Если в сокете нет такого атрибута, то добавляем в путь название атрибута
+                                else:
+                                    tag_list.append([f"{inner_objName}.{i15.get("name")}.{i16.get("name")}", i16.get("type")])
+                                    # print([f"{inner_objName}.{i15.get("name")}.{i16.get("name")}", i16.get("type")])
+
+                            # Поиск вложенного сокета TMR
+                            for i116 in i15.xpath("ct:nested-socket", namespaces=self.ns):
+
+                                inner_socket_attr = i116.xpath(
+                                        ".//*[local-name()='attribute' and @type='unit.Server.Attributes.NodeRelativePath']")
+
+                                # print(
+                                #     f"inner_socket = {etree.tostring(i116, pretty_print=True, encoding='unicode')}")
+
+                                # Если он найден
+                                if inner_socket_attr:
+                                    inner_socket_relative_path_value = inner_socket_attr[0].get("value")
+
+                                # Проходимя по тегам во вложенном сокете
+                                for i117 in i116.xpath("ct:socket-parameter", namespaces=self.ns):
+                                    # Если в сокете есть атрибут имя узла в OPC
+                                    if inner_socket_attr:
+                                        # Если ему присвоено значение то добавим его в путь тега иначе пусто
+                                        if inner_socket_relative_path_value:
+                                            tag_list.append(
+                                            [f"{inner_objName}.{inner_socket_relative_path_value}.{i117.get("name")}",
+                                                                                         i117.get("type")])
+                                            # print(
+                                            #     [f"{inner_objName}.{inner_socket_relative_path_value}.{i117.get("name")}",
+                                            #      i117.get("type")])
+                                        else:
+                                            tag_list.append([f"{inner_objName}.{i15.get("name")}.{i117.get("name")}", i117.get("type")])
+                                            # print([f"{inner_objName}.{i15.get("name")}.{i117.get("name")}", i117.get("type")])
+                                    # Если в сокете нет такого атрибута, то добавляем в путь название сокета
+                                    else:
+                                        tag_list.append([f"{inner_objName}.{i15.get("name")}.{i116.get("name")}.{i117.get("name")}", i117.get("type")])
+                                        # print([f"{inner_objName}.{i15.get("name")}.{i116.get("name")}.{i117.get("name")}", i117.get("type")])
+
+                    except UnboundLocalError:
+                        print(
+                            f"Сокеты не обнаружены для внутренних типов.\n Нет секции для этого типа в Lib.omx")
+
+                    try:
+                        for i17 in found_inner_object.xpath("ct:parameter", namespaces=self.ns):
+                            tag_list.append([f"{inner_objName}.{i17.get("name")}", i17.get("type")])
+                            # print([f"{inner_objName}.{i17.get("name")}", i17.get("type")])
+                    except UnboundLocalError:
+                        print(
+                            f"Найденная секция не подходит под шаблон для типа: {found_types}, объекта: {found_obj}, протокола: {found_protocol}.\n Нет секции для этого типа в Lib.omx")
 
         except UnboundLocalError:
             print(f"Сокеты не обнаружены переходим к поиску параметров для типа: {found_types}, объекта: {found_obj}, протокола: {found_protocol}.\n Нет секции для этого типа в Lib.omx")
