@@ -95,7 +95,8 @@ class FramePLC(ttk.Frame):
                                     widths=(30, 120, 120, 120),
                                     insert_rule=self.conntable_insert_rule,
                                     highlight_rules={
-                                        'highlight_row': ('yellow', 'black')
+                                        'highlight_yellow': ('yellow', 'black'),
+                                        'highlight_grey': ('grey77', 'black'),
                                     }
                                     ),
             'btn': ControlField(self,
@@ -182,16 +183,50 @@ class FramePLC(ttk.Frame):
 
     def bindRowCLick(self, event):
         row_val = self.fields['table'].get_selected()[0]
+        # print(f'row_val {row_val}')
+
         tag_list = self.myLibOmx.get_lib_tag_list(row_val[1])
+        # print(f'tag_list {tag_list}')
+
         full_path_tag_list = [i[0] for i in tag_list]
+        # print(f'full_path_tag_list {full_path_tag_list}')
+
         self.link_dict = self.check_link_one_instance(row_val[0], full_path_tag_list)
+        # print(f'self.link_dict {self.link_dict}')
+
         self.fields['conTable'].clear()
+
+
+        # lib = self.myLibOmx.get_lib_prefix(row_val[1])
+        # node_path = row_val[0]
+        # item_id = self.get_item_id(row_val[0])
+
 
         j = 0
         for i in tag_list:
             j += 1
-            self.fields['conTable'].insert(j, i[0], i[1],self.link_dict[i[0]])
-        # self.fields['conTable'].highlightRow()
+            # Допишем в поле с номером информацию по расхождению пути с ожидаемым
+            modifed_num = j
+
+            # Обработка исключения для ПАЗов и Алармов
+            expected_path = f'{row_val[0]}.{i[0]}'
+
+            if 'dbEPS' in self.link_dict[i[0]]:
+                expected_path = expected_path .replace('Item', 'AREA', 1)
+            if 'dbAlarms' in self.link_dict[i[0]]:
+                expected_path = expected_path.replace('Item', 'SZS', 1)
+
+            #
+            # print(f'желаемый тег {expected_path}')
+            # if (expected_path == self.link_dict[i[0]]):
+            #     print('Пути совпали')
+
+            # Модификация первого столбца нижней таблицы с тегами
+            if expected_path != self.link_dict[i[0]] and self.link_dict[i[0]] != 'None':
+                modifed_num = f'{j} -есть расхождения*'
+
+
+            self.fields['conTable'].insert(modifed_num, i[0], i[1],self.link_dict[i[0]])
 
 
     def check_link_one_instance(self, path:str, tag_list:list):
@@ -279,7 +314,7 @@ class FramePLC(ttk.Frame):
         for i in self.instAppDict:
             if i['item_id'] not in ["None", 'none', None]:
                 full_path_tag_list = [j[0] for j in self.myLibOmx.get_lib_tag_list(i['lib'])]
-                print('******************')
+                # print('******************')
                 print(*full_path_tag_list)
                 for tag, node_id in self.check_link_one_instance(i['path'], full_path_tag_list).items():
                     self.myMap.insert_XML_to_map(self.myMap.create_XMLtag(self.myLibOmx.get_lib_prefix(i['lib']), i['path'], tag, i['item_id']))
@@ -330,5 +365,9 @@ class FramePLC(ttk.Frame):
 
     def conntable_insert_rule(self, values):
         i, obj_id, obj_type, conn_status = values
-        tags = ('highlight_row',) if conn_status == 'None' else ()
+        tags = ()
+        if conn_status == 'None':
+            tags = ('highlight_yellow',)
+        elif str(i).endswith('*'):
+            tags = ('highlight_grey',)
         return values, tags

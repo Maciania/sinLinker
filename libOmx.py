@@ -28,7 +28,9 @@ class LibOmxFile:
                        'AO': {'OPC_UA': 'dbAO', 'S7': 'dbAO', 'ModbusTCP': 'dbAO'},
                        'MotorDP': {'OPC_UA': 'dbMotorDP', 'S7': 'dbMotorDP', 'ModbusTCP': 'dbMotorDP'},
                        'ThickenLift': {'OPC_UA': 'dbThickenLift', 'S7': 'dbThickenLift', 'ModbusTCP': 'dbThickenLift'},
-                       'ThickenRot': {'OPC_UA': 'dbThickenRot', 'S7': 'dbThickenRot', 'ModbusTCP': 'dbThickenRot'}
+                       'ThickenRot': {'OPC_UA': 'dbThickenRot', 'S7': 'dbThickenRot', 'ModbusTCP': 'dbThickenRot'},
+                       'EPS': {'OPC_UA': 'dbEPS', 'S7': 'dbEPS', 'ModbusTCP': 'dbEPS'},
+                       'ALM': {'OPC_UA': 'dbAlarms', 'S7': 'dbAlarms', 'ModbusTCP': 'dbAlarms'}
                         }
 
     def collect_member_paths(self, element, prefix=""):

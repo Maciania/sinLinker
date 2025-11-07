@@ -278,11 +278,19 @@ class FrameItemGenerator(ttk.Frame):
             for item in self.fields['item_table'].get_selected(cols=(1,2,3)):
                 item_id, item_id_num, conn_stat = item
 
+                item_name = 'Item'
+
                 if item_type and item_lib and item_id_num and item_id and conn_stat == "Нет":
+
+                    # Обрабатываем исключения для Пазов и алармов
+                    if item_type == 'dbEPS':
+                        item_name = 'AREA'
+                    if item_type == 'dbAlarms':
+                        item_name = 'SZS'
 
                     self.myOmx.insert_object_at_end(
                     parent_path=f"Application.{item_type}",
-                    name=f"Item[{item_id_num}]",
+                    name=f"{item_name}[{item_id_num}]",
                     base_type=f"{item_lib}",
                     aspect="unit.Lib.Aspects.PLC",
                     uuid="",

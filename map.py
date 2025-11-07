@@ -62,16 +62,29 @@ class MapFile:
     # node_path - путь к тегу в AStudio, например SinLib.mtr1.HMI_CMD
     # node_id - путь к тегу в OPC (UAExpert), например Application.MTR_MTR1.sMtr.HmiCmd
     def create_XMLtag(self, lib, node_path, tag, item_id):
+        'Создание секции на один тег для карты адресов'
 
         newObj = ET.Element('item', Binding='Introduced')
         ET.indent(newObj, space='   ', level=0)
 
-        tagStruct = {
-            'node-path': f'{node_path}.{tag}',
-            'namespace': 'urn:ProsoftSystems:regul_ua_server:iec_data',
-            'nodeIdType': 'String',
-            'nodeId': f'Application.{lib}.Item[{item_id}].{tag}',
-        }
+        # item_name = 'Item'
+        #
+        # # Обрабатываем исключения для Пазов и алармов
+        # if lib == 'dbEPS':
+        #     item_name = 'AREA'
+        # if lib == 'dbAlarms':
+        #     item_name = 'SZS'
+        #
+        #
+        # tagStruct = {
+        #     'node-path': f'{node_path}.{tag}',
+        #     'namespace': 'urn:ProsoftSystems:regul_ua_server:iec_data',
+        #     'nodeIdType': 'String',
+        #     'nodeId': f'Application.{lib}.{item_name}[{item_id}].{tag}',
+        # }
+
+        tagStruct = self.get_tag_struct(lib, node_path, tag, item_id)
+
 
         for key, value in tagStruct.items():
             ET.SubElement(newObj, key).text = value
@@ -79,6 +92,27 @@ class MapFile:
 
         # ET.dump(newObj)
         return newObj
+
+    def get_tag_struct(self, lib, node_path, tag, item_id):
+        'Возвращает tagStruct из которого делается XML секция'
+
+        item_name = 'Item'
+
+        # Обрабатываем исключения для Пазов и Алармов
+        if lib == 'dbEPS':
+            item_name = 'AREA'
+        if lib == 'dbAlarms':
+            item_name = 'SZS'
+
+        tagStruct = {
+            'node-path': f'{node_path}.{tag}',
+            'namespace': 'urn:ProsoftSystems:regul_ua_server:iec_data',
+            'nodeIdType': 'String',
+            'nodeId': f'Application.{lib}.{item_name}[{item_id}].{tag}',
+        }
+
+        return tagStruct
+
 
     # Вставка объекта xmlObj в файл
     def insert_XML_to_map(self, xmlObj):
