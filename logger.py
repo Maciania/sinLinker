@@ -1,22 +1,28 @@
-import sys
-import os
+import logging
 from datetime import datetime
+import os
+import sys
+from os import write
 
-class Logger:
-    def __init__(self, filename="app.log"):
-        if getattr(sys, 'frozen', False):
-            base_path = os.path.dirname(sys.executable)
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
 
-        log_path = os.path.join(base_path, filename)
-        self.log_file = open(log_path, "a", encoding="utf-8", buffering=1)  # buffering=1 = построчная запись
+def setup_logger(filename="app.log"):
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
-        sys.stdout = self.log_file
-        sys.stderr = self.log_file
+    log_path = os.path.join(base_path, filename)
 
-        self.write("=" * 40)
-        self.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Приложение запущено")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_path, mode='w',  encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
 
-    def write(self, msg: str):
-        print(msg)
+    logging.info("=" * 40)
+    logging.info("Приложение запущено")
+
+    return logging.getLogger(__name__)

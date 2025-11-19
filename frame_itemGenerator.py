@@ -14,6 +14,7 @@ from map import MapFile
 from omx import OmxFile
 # import SinLib
 from excell import ConfExcellFile
+from logger import setup_logger
 
 
 class FrameItemGenerator(ttk.Frame):
@@ -68,6 +69,7 @@ class FrameItemGenerator(ttk.Frame):
 
         self.create_widgets()
         self.pack_widgets()
+        self.logger = setup_logger()
 
 
 
@@ -135,7 +137,7 @@ class FrameItemGenerator(ttk.Frame):
             found_path = self.find_dir_upwards(dirname, "DS_LIB")
 
             if found_path:
-                print(f"Папка DS_LIB найдена: {found_path}")
+                self.logger.info(f"Папка DS_LIB найдена: {found_path}")
                 for lib_path in os.listdir(found_path):
                     if os.path.isdir(os.path.join(found_path, lib_path)) and lib_path.lower() == 'lib':
                         full_lib_path = os.path.join(found_path, lib_path)
@@ -147,7 +149,7 @@ class FrameItemGenerator(ttk.Frame):
                                 self.myLibOmx = LibOmxFile(omx_path=full_lib_omx_file)
 
             else:
-                print("Папка DS_LIB не найдена выше по дереву.")
+                self.logger.info("Папка DS_LIB не найдена выше по дереву.")
 
             self.fields['module_dir'].setNewTxt(dirname)
             for module_path in os.listdir(dirname):
@@ -225,9 +227,9 @@ class FrameItemGenerator(ttk.Frame):
     def get_obj_from_excell(self):
         """ Формируем таблицу с названиями вкладок на конфигураторе и кол-во item-ов на нем"""
         for item_type in self.ConfExcell.getSheetNames():
-            print(item_type)
+            self.logger.info(item_type)
         for key, value in self.ConfExcell.items_list.items():
-            print(key, len(value))
+            self.logger.info(key, len(value))
 
 
     def insert_to_table(self):
@@ -298,7 +300,7 @@ class FrameItemGenerator(ttk.Frame):
                     )
 
         except IndexError:
-            print(f"Не выделена строка во второй таблице")
+            self.logger.exception(f"Не выделена строка во второй таблице")
 
         # self.myOmx.save("C:\\Users\\sinetic\\Desktop\\sinLinker\\data_files\\GMO_30_PLC_R3_modified.omx")
 

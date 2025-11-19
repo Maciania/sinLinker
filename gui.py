@@ -91,11 +91,43 @@ class MyComboBox(Frame):
         self.combo['values'] = values
         self.combo.current(0)
 
+    def set_index(self, index):
+        self.combo.current(index)
+
     def getValue(self):
         return self.combo.get()
 
     def getId(self):
         return self.combo.current()
+
+    def get_combobox_index(self, value, case_sensitive=False):
+        """
+        Получить индекс значения в Combobox
+
+        Args:
+            combobox: объект ttk.Combobox
+            value: искомое значение
+            case_sensitive: учитывать регистр (по умолчанию False)
+
+        Returns:
+            int: индекс элемента или -1 если не найден
+        """
+        values = self.combo['values']
+
+        if case_sensitive:
+            # Поиск с учетом регистра
+            try:
+                return values.index(value)
+            except ValueError:
+                return -1
+        else:
+            # Поиск без учета регистра
+            value_lower = value.lower()
+            for i, item in enumerate(values):
+                if str(item).lower() == value_lower:
+                    return i
+            return None
+
 
     def open_help_window(self):
         HelpWindow(self.help_title, self.help_label,
@@ -106,13 +138,18 @@ class MyComboBox(Frame):
 class MyLabelFrame(Frame):
     """Класс для вывода объектов участвующих в подвязке"""
 
-    def __init__(self, master, labelTxt: str, bindEntry):
+    def __init__(self, master, labelTxt: str, bindEntry, init_enable:bool=False):
         super().__init__(master)
         self.master = master
         self.labelTxt = labelTxt
         self.bindEntry = bindEntry
+        self.init_enable = init_enable
         self.__init_ui()
-        self.pack(anchor=tk.W, padx=5, pady=3, fill=tk.X)
+
+        if self.init_enable:
+            self.enable()
+
+        # self.pack(anchor=tk.W, padx=5, pady=3, fill=tk.X)
 
     def __init_ui(self):
         self.label = Label(self, text=self.labelTxt)
@@ -125,10 +162,12 @@ class MyLabelFrame(Frame):
         self.entry.pack(side="left", expand=True, fill=X)
 
     def setNewTxt(self, newText):
-        self.enable()
+        if not self.init_enable:
+            self.enable()
         self.entry.delete(0, END)
         self.entry.insert(tk.INSERT, newText)
-        self.disable()
+        if not self.init_enable:
+            self.disable()
 
     def enable(self):
         self.entry.configure(state='normal')
@@ -256,168 +295,6 @@ class UniversalTable(Frame):
         for item_id in self.tree.selection():
             selected_list.append(tuple(self.tree.set(item_id, c) for c in cols))
         return selected_list
-
-# class MyTable(Frame):
-#     """Таблица для представления объектов"""
-#
-#     def __init__(self, master, bindRowCLick):
-#         super().__init__(master)
-#         self.master = master
-#         self.bindRowCLick = bindRowCLick
-#         self.__init_ui()
-#         # self.pack(anchor=tk.W, padx=5, pady=3, fill=tk.BOTH, expand=True)
-#         self.selInst = None
-#         self.selInstLib = None
-#
-#
-#     def __init_ui(self):
-#         columns = ("#1", "#2", "#3", "#4", "#5")
-#         self.tree = ttk.Treeview(self, show="headings", columns=columns, selectmode="extended")
-#
-#         # Настройка заголовков
-#         self.tree.heading("#1", text="ID")
-#         self.tree.heading("#2", text="Название")
-#         self.tree.heading("#3", text="itemID")
-#         self.tree.heading("#4", text="Библиотека")
-#         self.tree.heading("#5", text="Статус подвязки")
-#
-#         # Настройка ширины колонок
-#         self.tree.column("#1", width=30)
-#         self.tree.column("#2", width=120)
-#         self.tree.column("#3", width=80)
-#         self.tree.column("#4", width=100)
-#         self.tree.column("#5", width=120)
-#
-#         # Добавление скроллбара
-#         self.ysb = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
-#         self.tree.configure(yscroll=self.ysb.set)
-#
-#         # Упаковка
-#         self.tree.pack(side="left", expand=True, fill=BOTH)
-#         self.ysb.pack(side="left", fill=BOTH)
-#
-#
-#         # self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
-#         self.tree.bind("<<TreeviewSelect>>", self.bindRowCLick)
-#
-#     def insert(self, obj_id, obj_name: str, obj_type: str, base_type: str, con_status: str):
-#         tags = 'None'
-#         if con_status == 'Частично':
-#             tags = 'highlight_yellow'
-#         if con_status == 'Отсутствует':
-#              tags = 'highlight_red'
-#         # if con_status == 'Полностью':
-#         #     tags = 'None'
-#
-#         self.tree.insert("", END, values=(obj_id, obj_name, obj_type, base_type, con_status), tags=(tags))
-#
-#     def clear(self):
-#         for i in self.tree.get_children():
-#             self.tree.delete(i)
-#
-#     def on_tree_select(self):
-#         """
-#         Получить значения 1 и 3 го столбцов выделенной строки или нескольких строк
-#         """
-#         selected_list = []
-#
-#         selected_items = self.tree.selection()  # Get the ID(s) of the selected item(s)
-#         for item_id in selected_items:
-#             selected_list.append((self.tree.set(item_id, 1), self.tree.set(item_id, 3)))
-#
-#         return selected_list
-#
-#     def highlightRow(self):
-#         self.tree.tag_configure('highlight_yellow', background='yellow', foreground='black')
-#         self.tree.tag_configure('highlight_red', background='red', foreground='white')
-#
-# class AttrTable(Frame):
-#     """Таблица для представленяи карты атрибутов"""
-#
-#     def __init__(self, master):
-#         super().__init__(master)
-#         self.master = master
-#         self.__init_ui()
-#         # self.pack(anchor=tk.W, padx=5, pady=3, fill=tk.BOTH, expand=True)
-#
-#     def __init_ui(self):
-#         columns = ("#1", "#2", "#3", "#4")
-#         self.tree = ttk.Treeview(self, show="headings", columns=columns)
-#
-#         # Настройка заголовков
-#         self.tree.heading("#1", text="№")
-#         self.tree.heading("#2", text="ID")
-#         self.tree.heading("#3", text="Value")
-#         self.tree.heading("#4", text="NewValue")
-#
-#         # Настройка ширины колонок
-#         self.tree.column("#1", width=10)
-#         self.tree.column("#2", width=120)
-#         self.tree.column("#3", width=120)
-#         self.tree.column("#4", width=120)
-#
-#         # Добавление скроллбара
-#         self.ysb = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
-#         self.tree.configure(yscroll=self.ysb.set)
-#
-#         # Упаковка
-#         self.tree.pack(side="left", expand=True, fill=BOTH)
-#         self.ysb.pack(side="left", fill=BOTH)
-#
-#     def insert(self, i, obj_id: str, obj_name: str, new_obj_name: str):
-#         self.tree.insert("", END, values=(i, obj_id, obj_name, new_obj_name), tags=('highlight_row' if obj_name != new_obj_name else 'None'))
-#
-#     def clear(self):
-#         for i in self.tree.get_children():
-#             self.tree.delete(i)
-#
-#     def highlightRow(self):
-#         self.tree.tag_configure('highlight_row', background='yellow', foreground='black')
-#
-# class ConnTable(Frame):
-#     """Таблица для проверки подвязки карты адресов"""
-#
-#     def __init__(self, master):
-#         super().__init__(master)
-#         self.master = master
-#         self.__init_ui()
-#         # self.pack(anchor=tk.W, padx=5, pady=3, fill=tk.BOTH, expand=True)
-#
-#     def __init_ui(self):
-#         columns = ("#1", "#2", "#3", "#4")
-#         self.tree = ttk.Treeview(self, show="headings", columns=columns)
-#
-#         # Настройка заголовков
-#         self.tree.heading("#1", text="№")
-#         self.tree.heading("#2", text="Сигнал")
-#         self.tree.heading("#3", text="Тип")
-#         self.tree.heading("#4", text="Привязка")
-#
-#         # Настройка ширины колонок
-#         self.tree.column("#1", width=10)
-#         self.tree.column("#2", width=120)
-#         self.tree.column("#3", width=120)
-#         self.tree.column("#4", width=120)
-#
-#         # Добавление скроллбара
-#         self.ysb = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
-#         self.tree.configure(yscroll=self.ysb.set)
-#
-#         # Упаковка
-#         self.tree.pack(side="left", expand=True, fill=BOTH)
-#         self.ysb.pack(side="left", fill=BOTH)
-#
-#     def insert(self, i, obj_id: str, obj_type: str, conn_status: str):
-#         self.tree.insert("", END, values=(i, obj_id, obj_type, conn_status), tags=('highlight_row' if conn_status == 'None' else 'None'))
-#
-#     def clear(self):
-#         for i in self.tree.get_children():
-#             self.tree.delete(i)
-#
-#     def highlightRow(self):
-#         self.tree.tag_configure('highlight_row', background='yellow', foreground='black')
-
-
 
 
 class HelpWindow(Frame):

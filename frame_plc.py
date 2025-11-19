@@ -2,17 +2,15 @@ import os
 import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter import ttk
-from datetime import datetime
-# import random
 import re
 
 from gui import MyFileDialog, MyComboBox, MyScrollText, MyLabelFrame, ControlField, UniversalTable
 from libOmx import LibOmxFile
 from map import MapFile
 from omx import OmxFile
-# import SinLib
 from excell import ConfExcellFile
-
+# from main import logger
+from logger import setup_logger
 
 class FramePLC(ttk.Frame):
     def __init__(self, master=None):
@@ -65,6 +63,7 @@ class FramePLC(ttk.Frame):
 
         self.create_widgets()
         self.pack_widgets()
+        self.logger = setup_logger()
 
 
 
@@ -154,16 +153,12 @@ class FramePLC(ttk.Frame):
         self.fields['table'].clear()
         j = 0
 
-        print(*self.instApp)
+        self.logger.info(self.instApp)
 
         for i in self.instApp:
             j += 1
             lib = self.myOmx.get_base_type_by_path(i)
-            # print(
-            #     f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Библиотека:{lib} для пути:{i}")
             item_id = self.get_item_id(i)
-            # print(
-            #     f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Путь:{i} Чарт:{self.myLibOmx.get_lib_prefix(lib)} item_id:{item_id}")
 
             conn_status = self.check_connection(i, lib)
 
@@ -171,7 +166,6 @@ class FramePLC(ttk.Frame):
             self.instAppDict.append({'id': j, 'path': i, 'item_id': item_id, 'lib': lib, 'con_stat':conn_status})
 
         self.insert_to_map_table()
-        # self.print_instAppDict()
 
     def insert_to_map_table(self):
         """ Вставка списка словарей self.instAppDict в таблицу 'table'"""
@@ -183,23 +177,10 @@ class FramePLC(ttk.Frame):
 
     def bindRowCLick(self, event):
         row_val = self.fields['table'].get_selected()[0]
-        # print(f'row_val {row_val}')
-
         tag_list = self.myLibOmx.get_lib_tag_list(row_val[1])
-        # print(f'tag_list {tag_list}')
-
         full_path_tag_list = [i[0] for i in tag_list]
-        # print(f'full_path_tag_list {full_path_tag_list}')
-
         self.link_dict = self.check_link_one_instance(row_val[0], full_path_tag_list)
-        # print(f'self.link_dict {self.link_dict}')
-
         self.fields['conTable'].clear()
-
-
-        # lib = self.myLibOmx.get_lib_prefix(row_val[1])
-        # node_path = row_val[0]
-        # item_id = self.get_item_id(row_val[0])
 
 
         j = 0
@@ -216,10 +197,7 @@ class FramePLC(ttk.Frame):
             if 'dbAlarms' in self.link_dict[i[0]]:
                 expected_path = expected_path.replace('Item', 'SZS', 1)
 
-            #
-            # print(f'желаемый тег {expected_path}')
-            # if (expected_path == self.link_dict[i[0]]):
-            #     print('Пути совпали')
+            self.logger.info(f'желаемый тег {expected_path}')
 
             # Модификация первого столбца нижней таблицы с тегами
             if expected_path != self.link_dict[i[0]] and self.link_dict[i[0]] != 'None':
@@ -253,7 +231,7 @@ class FramePLC(ttk.Frame):
 
             if 'None' in link_dict.values():
 
-                # print(f'Привязка выбранного {lib}, {node_path}, {item_id}, словарь подвязок {link_dict}')
+                self.logger.info(f'Привязка выбранного {lib}, {node_path}, {item_id}, словарь подвязок {link_dict}')
 
                 if item_id is not None:
                     for tag, node_id in link_dict.items():
@@ -273,7 +251,7 @@ class FramePLC(ttk.Frame):
             else:
                 return None
         except (AttributeError, TypeError) as e:
-            print(f"Ошибка при обработке текста: {e}")
+            self.logger.exception(f"Ошибка при обработке текста: {e}")
             return None
 
 
@@ -304,7 +282,7 @@ class FramePLC(ttk.Frame):
             else:
                 return None
         except (AttributeError, TypeError) as e:
-            print(f"Ошибка при обработке текста: {e}")
+            self.logger.exception(f"Ошибка при обработке текста: {e}")
             return None
 
 
@@ -314,8 +292,8 @@ class FramePLC(ttk.Frame):
         for i in self.instAppDict:
             if i['item_id'] not in ["None", 'none', None]:
                 full_path_tag_list = [j[0] for j in self.myLibOmx.get_lib_tag_list(i['lib'])]
-                # print('******************')
-                print(*full_path_tag_list)
+
+                self.logger.info(f'Полный path для тегов {full_path_tag_list}')
                 for tag, node_id in self.check_link_one_instance(i['path'], full_path_tag_list).items():
                     self.myMap.insert_XML_to_map(self.myMap.create_XMLtag(self.myLibOmx.get_lib_prefix(i['lib']), i['path'], tag, i['item_id']))
         self.save_map()

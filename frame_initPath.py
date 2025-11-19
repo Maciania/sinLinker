@@ -5,7 +5,7 @@ from tkinter import ttk
 from datetime import datetime
 from objectMnemos import ObjectMnemos
 
-from gui import MyFileDialog, ControlField, UniversalTable
+from gui import MyFileDialog, ControlField, UniversalTable, MyComboBox, MyLabelFrame
 
 
 class FrameInitPath(ttk.Frame):
@@ -78,16 +78,19 @@ class FrameInitPath(ttk.Frame):
                                         # highlight_rules={
                                         #         'highlight_row': ('lightgreen', 'black')
                                         #             },
-                                        #            bindRowClick=self.test
-                                                    )
-            # 'btn': ControlField(self,
+                                        bindRowClick=self.update_init_data
+                                                    ),
+            'apsource_cb': MyComboBox(self, 'Выбор AP_Source из глобального AP.omobj', None),
+            'initpath_label':  MyLabelFrame(self, 'Новый init_path', None, init_enable=True),
+            'btn': ControlField(self,
             #                     ('Получить объекты', self.get_blockicons),
-            #                     # ('Проверить подвязку', self.check_connection),
-            #                     ('Полная привязка', self.get_blockicons))
+                                ('Записать изменения', self.update_blockicons_data)
+                                # ('Получить AP', self.get_ap_source_objects)
+                                 )
         }
 
     def pack_widgets(self):
-        order = ['object_dir', 'object_table', 'inst_table']
+        order = ['object_dir', 'object_table', 'inst_table', 'apsource_cb', 'initpath_label', 'btn']
         for w in order:
             widget = self.fields[w]
             if w == 'object_table':
@@ -105,6 +108,7 @@ class FrameInitPath(ttk.Frame):
             self.ObjectMnemosInst = ObjectMnemos(objectDir_path=dirname)
             self.omobj_list = self.ObjectMnemosInst.get_files_info()
             self.insert_to_omobj_table()
+            self.get_ap_source_objects()
 
     def get_blockicons(self, event):
         """ Получить информацию по мнемосхеме и встваить в таблицу с блокиконками """
@@ -128,5 +132,37 @@ class FrameInitPath(ttk.Frame):
         for row in self.inst_list:
             id, name, base_type,init_path, ap_source = row
             self.fields['inst_table'].insert(id, name, base_type,init_path, ap_source)
+
+
+    def get_ap_source_objects(self):
+        """Получить перечень существующих AP_Source из AP.omobj"""
+        self.fields['apsource_cb'].setValues(self.ObjectMnemosInst.data_from_ap_omobj())
+
+    def update_blockicons_data(self):
+        """Для выделенной мнемосхемы и выделенной блокиконки меняем init_path и AP_Source как задано в полях ниже"""
+
+        mnemo = self.fields['object_table'].get_selected(cols=(0, 1))[0][1]
+        blockicons = self.fields['inst_table'].get_selected(cols=(0, 1))[0][1]
+        ap_source = self.fields['apsource_cb'].getValue()
+        init_path = self.fields['initpath_label'].getValue()
+
+        # Запишем в файл мнемосхемы изменения по двум полям
+        self.ObjectMnemosInst.update_blockicons_data(mnemo, blockicons, new_ap=f'unit.AP.{ap_source}', new_initpath=init_path)
+
+    def update_init_data(self, event):
+        """ Обновление комбобокса и поля ввода init_path в соотвествтии с текущими данными"""
+        if self.fields['inst_table'].get_selected(cols=(3, 4)):
+            init_path, ap_source =  self.fields['inst_table'].get_selected(cols=(3, 4))[0]
+            no_pref_ap_source = ap_source.split('.')[-1]
+            index_in_cb =  self.fields['apsource_cb'].get_combobox_index(no_pref_ap_source)
+            if index_in_cb is not None:
+                self.fields['apsource_cb'].set_index(index_in_cb)
+            self.fields['initpath_label'].setNewTxt(init_path)
+
+
+
+
+
+
 
 
