@@ -1,4 +1,5 @@
 from lxml import etree
+from logger import setup_logger
 
 class LibOmxFile:
     def __init__(self, omx_path):
@@ -9,6 +10,7 @@ class LibOmxFile:
             "sys": "system"
         }
         self.root = self.tree.getroot()
+        self.logger = setup_logger()
 
         self.dbDict = {'AI': {'OPC_UA':'dbAI','S7':'dbAI', 'ModbusTCP':'dbAI'},
                        'DI': {'OPC_UA': 'dbDI', 'S7': 'dbDI', 'ModbusTCP': 'dbDI'},
@@ -77,12 +79,18 @@ class LibOmxFile:
         #     print(f"Проблема в секции библиотеки lib: {e} для поиска типа экземпляра {full_lib_path}")
 
         full_lib = full_lib_path.split('.')
+        self.logger.info(f"Полный путь для поиска библиотеки{full_lib}")
+
+        # Исключение для PID_CPLX
+        if full_lib[-1].upper() == "PID_CPLX_PLC":
+            return 'dbPID_CPLX'
 
         try:
             value = self.dbDict[full_lib[-3]][full_lib[-2]]
         except KeyError:
             value = 'none'
         finally:
+            self.logger.info(f"Возвращенный путь для {full_lib} явился {value}")
             return value
 
 
@@ -149,16 +157,27 @@ class LibOmxFile:
                     node_relative_path_value = node_attr[0].get("value")
 
                 for i6 in i5.xpath("ct:socket-parameter", namespaces=self.ns):
+
+                    # Ищем атрибут "Имя узла OPC в тегах внутри сокета"
+                    socket_param_node_attr = i6.xpath(
+                        ".//*[local-name()='attribute' and @type='unit.Server.Attributes.NodeRelativePath']")
+                    if socket_param_node_attr:
+                        socket_param_opc_name = socket_param_node_attr[0].get("value")
+                        self.logger.info(f" для {i6.get("name")} найден атрибут имя узла OPC {socket_param_opc_name}")
+                    else:
+                        socket_param_opc_name = i6.get("name")
+
+
                     # Если в сокете есть атрибут имя узла в OPC
                     if node_attr:
                         # Если ему присвоено значение то добавим его в путь тега иначе пусто
                         if node_relative_path_value:
-                            tag_list.append([f"{node_relative_path_value}.{i6.get("name")}", i6.get("type")])
+                            tag_list.append([f"{node_relative_path_value}.{socket_param_opc_name}", i6.get("type")])
                         else:
-                            tag_list.append([i6.get("name"), i6.get("type")])
+                            tag_list.append([socket_param_opc_name, i6.get("type")])
                     # Если в сокете нет такого атрибута, то добавляем в путь название атрибута
                     else:
-                        tag_list.append([f"{i5.get("name")}.{i6.get("name")}", i6.get("type")])
+                        tag_list.append([f"{i5.get("name")}.{socket_param_opc_name}", i6.get("type")])
 
             # Ищем внутренние объекты ( например EPS в Area_PLC)
             for i8 in found_aspect.xpath("ct:object", namespaces=self.ns):
